@@ -10,7 +10,8 @@ services:
         environment:
             ENABLE_IPV6: 'true'
         volumes:
-            - /var/run/docker.sock:/tmp/docker.sock:ro
+            - '/var/run/docker.sock:/tmp/docker.sock:ro'
+            - '${HOME}/letsencrypt:/etc/letsencrypt'
 
 networks:
     default:
