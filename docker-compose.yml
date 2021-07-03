@@ -8,7 +8,7 @@ services:
             - "8080:8080"
             - "6001:6001"
         environment:
-            ENABLE_IPV6: true
+            ENABLE_IPV6: 'true'
         volumes:
             - /var/run/docker.sock:/tmp/docker.sock:ro
 
