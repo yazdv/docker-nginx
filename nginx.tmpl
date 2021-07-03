@@ -62,7 +62,7 @@ proxy_set_header Proxy "";
     # Exposed ports: {{ $container.Addresses }}
     {{ end }}
 
-	{{ range $http_port := split $container.Env.VIRTUAL_HTTP_PORT "," }}
+	{{ range $http_port := (split (or ($container.Env.VIRTUAL_HTTP_PORT) "") ",") }}
 	    {{ $http_port := trim $http_port }}
 	    {{ $address := where $container.Addresses "Port" $http_port | first }}
 
@@ -81,18 +81,18 @@ proxy_set_header Proxy "";
                         {{/* If we got the containers from swarm and this container's port is published to host, use host IP:PORT */}}
                         {{ if and $container.Node.ID $address.HostPort }}
 
-                            {{ $upstream_link := (print $container.Node.Address.IP ":" $address.HostPort) }}
+                            {{ $upstream_link = (print $container.Node.Address.IP ":" $address.HostPort) }}
 
                         {{/* If there is no swarm node or the port is not published on host, use container's IP:PORT */}}
                         {{ else if $containerNetwork }}
 
-                            {{ $upstream_link := (print $containerNetwork.IP ":" $address.Port) }}
+                            {{ $upstream_link = (print $containerNetwork.IP ":" $address.Port) }}
 
                         {{ end }}
                     {{ else if $containerNetwork }}
                         {{ if $containerNetwork.IP }}
 
-                            {{ $upstream_link := (print $containerNetwork.IP ":" $http_port) }}
+                            {{ $upstream_link = (print $containerNetwork.IP ":" $http_port) }}
 
                         {{ end }}
                     {{ end }}
@@ -112,7 +112,7 @@ proxy_set_header Proxy "";
                 {{ end }}
 
                 location / {
-                    proxy_pass http://{{ trim $upstream_name }};
+                    proxy_pass http://{{ trim $upstream_link }};
                 }
             }
         {{ end }}
@@ -123,7 +123,7 @@ proxy_set_header Proxy "";
     {{ $cert_name := $host }}
     {{ $is_https := (and (exists (printf "/etc/letsencrypt/live/%s/fullchain.pem" $cert_name)) (exists (printf "/etc/letsencrypt/live/%s/privkey.pem" $cert_name))) }}
     {{ if $is_https }}
-        {{ range $https_port := split $container.Env.VIRTUAL_HTTPS_PORT "," }}
+        {{ range $https_port := (split (or ($container.Env.VIRTUAL_HTTPS_PORT) "") ",") }}
             {{ $https_port := trim $https_port }}
             {{ $address := where $container.Addresses "Port" $https_port | first }}
 
@@ -142,18 +142,18 @@ proxy_set_header Proxy "";
                             {{/* If we got the containers from swarm and this container's port is published to host, use host IP:PORT */}}
                             {{ if and $container.Node.ID $address.HostPort }}
 
-                                {{ $upstream_link := (print $container.Node.Address.IP ":" $address.HostPort) }}
+                                {{ $upstream_link = (print $container.Node.Address.IP ":" $address.HostPort) }}
 
                             {{/* If there is no swarm node or the port is not published on host, use container's IP:PORT */}}
                             {{ else if $containerNetwork }}
 
-                                {{ $upstream_link := (print $containerNetwork.IP ":" $address.Port ) }}
+                                {{ $upstream_link = (print $containerNetwork.IP ":" $address.Port ) }}
 
                             {{ end }}
                         {{ else if $containerNetwork }}
                             {{ if $containerNetwork.IP }}
 
-                                {{ $upstream_link := (print $containerNetwork.IP ":" $https_port) }}
+                                {{ $upstream_link = (print $containerNetwork.IP ":" $https_port) }}
 
                             {{ end }}
                         {{ end }}
@@ -184,7 +184,7 @@ proxy_set_header Proxy "";
                     ssl_certificate_key {{ (printf "/etc/letsencrypt/live/%s/privkey.pem" $cert_name) }};
 
                     location / {
-                        proxy_pass https://{{ trim $upstream_name }};
+                        proxy_pass https://{{ trim $upstream_link }};
                     }
                 }
             {{ end }}
