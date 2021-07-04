@@ -120,7 +120,7 @@ proxy_set_header Proxy "";
 
 
 
-    {{ $cert_name := $host }}
+    {{ $cert_name := trimPrefix "www." $host }}
     {{ $is_https := (and (exists (printf "/etc/letsencrypt/live/%s/fullchain.pem" $cert_name)) (exists (printf "/etc/letsencrypt/live/%s/privkey.pem" $cert_name))) }}
     {{ if $is_https }}
         {{ range $https_port := (split (or ($container.Env.VIRTUAL_HTTPS_PORT) "") ",") }}

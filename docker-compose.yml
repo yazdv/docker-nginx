@@ -11,6 +11,7 @@ services:
             - "6001:6001"
         volumes:
             - 'nginx-conf:/etc/nginx/conf.d'
+            - '${HOME}/letsencrypt:/etc/letsencrypt'
     dockergen:
         image: jwilder/docker-gen
         command: -notify-sighup nginx -watch /etc/docker-gen/templates/nginx.tmpl /etc/nginx/conf.d/default.conf
