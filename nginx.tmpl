@@ -62,6 +62,8 @@ proxy_set_header Proxy "";
     # Exposed ports: {{ $container.Addresses }}
     {{ end }}
 
+    {{ $internal_network := eq (or ($container.Env.NETWORK_ACCESS) "external") "internal" }}
+
 	{{ range $http_port := (split (or ($container.Env.VIRTUAL_HTTP_PORT) "") ",") }}
 	    {{ $http_port := trim $http_port }}
 	    {{ $address := where $container.Addresses "Port" $http_port | first }}
@@ -109,6 +111,11 @@ proxy_set_header Proxy "";
                 listen {{ $http_port }};
                 {{ if $enable_ipv6 }}
                 listen [::]:{{ $http_port }};
+                {{ end }}
+
+                {{ if $internal_network }}
+                # Only allow traffic from internal clients
+                include /etc/nginx/network_internal.conf;
                 {{ end }}
 
                 location / {
@@ -170,6 +177,11 @@ proxy_set_header Proxy "";
                     listen {{ $https_port }} ssl http2;
                     {{ if $enable_ipv6 }}
                     listen [::]:{{ $https_port }} ssl http2;
+                    {{ end }}
+
+                    {{ if $internal_network }}
+                    # Only allow traffic from internal clients
+                    include /etc/nginx/network_internal.conf;
                     {{ end }}
 
                     ssl_protocols TLSv1.2 TLSv1.3;
