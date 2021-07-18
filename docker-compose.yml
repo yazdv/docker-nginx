@@ -9,7 +9,6 @@ services:
             - "80:80"
             - "8080:8080"
             - "6001:6001"
-            - "3306:3306"
         volumes:
             - 'nginx-conf:/etc/nginx/conf.d'
             - './network_internal.conf:/etc/nginx/network_internal.conf'
