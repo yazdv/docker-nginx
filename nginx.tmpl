@@ -32,7 +32,7 @@ map $proxy_x_forwarded_proto $proxy_x_forwarded_ssl {
   https   on;
 }
 
-access_log off;
+# access_log off;
 
 # Apply fix for very long server names
 server_names_hash_bucket_size 128;
