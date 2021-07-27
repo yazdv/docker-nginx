@@ -52,6 +52,10 @@ proxy_set_header SERVER_PORT $server_port;
 proxy_set_header REMOTE_ADDR $remote_addr;
 proxy_set_header Proxy "";
 
+server {
+    return 403;
+}
+
 {{ $enable_ipv6 := eq (or ($.Env.ENABLE_IPV6) "") "true" }}
 
 {{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
