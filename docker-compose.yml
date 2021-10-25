@@ -12,6 +12,7 @@ services:
         volumes:
             - 'nginx-conf:/etc/nginx/conf.d'
             - './network_internal.conf:/etc/nginx/network_internal.conf'
+            - './extras.conf:/etc/nginx/extras.conf'
             - '${HOME}/letsencrypt:/etc/letsencrypt'
     dockergen:
         image: jwilder/docker-gen

@@ -37,6 +37,8 @@ access_log off;
 # Apply fix for very long server names
 server_names_hash_bucket_size 128;
 
+include /etc/nginx/extras.conf;
+
 # HTTP 1.1 support
 proxy_http_version 1.1;
 proxy_buffering off;
