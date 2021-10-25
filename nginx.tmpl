@@ -5,7 +5,7 @@
 ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 {{ end }}
 
-include /etc/nginx/extras.conf;
+include /etc/nginx/proxy.conf;
 
 # If we receive X-Forwarded-Proto, pass it through; otherwise, pass along the
 # scheme used to connect to this server
