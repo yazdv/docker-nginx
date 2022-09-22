@@ -1,9 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Create external nginx network
-if ! docker network inspect nginx-proxy >/dev/null 2>&1; then
-	docker network create nginx-proxy
-fi
+export PROXY_NETWORK=${PROXY_NETWORK:-nginx-proxy}
+export LETSENCRYPT_VOLUME=${LETSENCRYPT_VOLUME:-letsencrypt}
 
-eval docker-compose "$@"
+function create_external_volume() {
+	if ! docker volume inspect "$1" >/dev/null 2>&1; then
+		docker volume create "$1"
+	fi
+}
+
+function create_external_network() {
+    if ! docker network inspect "$1" >/dev/null 2>&1; then
+    	docker network create "$1"
+    fi
+}
+
+# Create external networks if not exists
+create_external_network "$PROXY_NETWORK"
+
+# Create external volume if not exists
+create_external_volume "$LETSENCRYPT_VOLUME"
+
+docker compose "$@"

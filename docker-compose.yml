@@ -1,4 +1,3 @@
-version: '3'
 services:
     nginx:
         image: nginx
@@ -13,7 +12,7 @@ services:
             - 'nginx-conf:/etc/nginx/conf.d'
             - './network_internal.conf:/etc/nginx/network_internal.conf'
             - './proxy.conf:/etc/nginx/proxy.conf'
-            - '${HOME}/letsencrypt:/etc/letsencrypt'
+            - 'letsencrypt:/etc/letsencrypt'
         networks:
             - nginx-proxy
 
@@ -27,14 +26,17 @@ services:
             - 'nginx-conf:/etc/nginx/conf.d'
             - '/var/run/docker.sock:/tmp/docker.sock:ro'
             - './nginx.tmpl:/etc/docker-gen/templates/nginx.tmpl'
-            - '${HOME}/letsencrypt:/etc/letsencrypt'
+            - 'letsencrypt:/etc/letsencrypt'
         networks:
             - nginx-proxy
 
 networks:
     nginx-proxy:
         external: true
-
+        name: '${PROXY_NETWORK:-nginx-proxy}'
 volumes:
+    letsencrypt:
+        external: true
+        name: '${LETSENCRYPT_VOLUME:-letsencrypt}'
     nginx-conf:
         driver: local
