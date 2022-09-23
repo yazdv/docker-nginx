@@ -11,9 +11,9 @@ function create_external_volume() {
 }
 
 function create_external_network() {
-    if ! docker network inspect "$1" >/dev/null 2>&1; then
-    	docker network create "$1"
-    fi
+	if ! docker network inspect "$1" >/dev/null 2>&1; then
+		docker network create "$1"
+	fi
 }
 
 # Create external networks if not exists
