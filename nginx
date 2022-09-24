@@ -3,6 +3,8 @@ set -euo pipefail
 
 export PROXY_NETWORK=${PROXY_NETWORK:-nginx-proxy}
 export LETSENCRYPT_VOLUME=${LETSENCRYPT_VOLUME:-letsencrypt}
+export NGINX_VERSION=${NGINX_VERSION:-"1"}
+export DOCKERGEN_VERSION=${DOCKERGEN_VERSION:-"0.9"}
 
 function create_external_volume() {
 	if ! docker volume inspect "$1" >/dev/null 2>&1; then
