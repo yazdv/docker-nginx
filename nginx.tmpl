@@ -60,154 +60,121 @@ server {
 
 {{ $enable_ipv6 := eq (or ($.Env.ENABLE_IPV6) "") "true" }}
 
-{{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
-    {{ $host := trim $host }}
-    {{ $container := (first $containers) }}
 
-	{{ $debug := (eq (coalesce $debug_all "false") "true") }}
+{{ define "location" }}
+    {{ $container := .Container }}
+    {{ $protocol := .Protocol }}
+    {{ $port := .Port }}
+    {{ $networks := .Networks }}
+    {{ $debug := (eq (coalesce $container.Env.DEBUG .Debug "false") "true") }}
+    {{ $address := where $container.Addresses "Port" $port | first }}
+    {{ $upstream_link := "empty" }}
+
+    {{ if $debug }}
+        # Virtual Port: {{ $port }}
+        # Protocol: {{ $protocol }}
+        {{ if not $address }}
+            # (!) Virtual Port not exposed
+        {{ end }}
+    {{ end }}
+
+    {{ range $knownNetwork := $networks }}
+        {{ range $containerNetwork := $container.Networks }}
+            {{ if (and (ne $containerNetwork.Name "ingress") (or (eq $knownNetwork.Name $containerNetwork.Name) (eq $knownNetwork.Name "host"))) }}
+                {{/* Port was found in the container. */}}
+                {{ if $address }}
+                    {{/* If we got the container from swarm and the port is published to host */}}
+                    {{ if and $container.Node.ID $address.HostPort }}
+                        {{ $upstream_link = (print $container.Node.Address.IP ":" $address.HostPort) }}
+                    {{ else if $containerNetwork }}
+                        {{ $upstream_link = (print $containerNetwork.IP ":" $address.Port) }}
+                    {{ end }}
+                {{/* Just send traffic to the container */}}
+                {{ else if $containerNetwork }}
+                    {{ if $containerNetwork.IP }}
+                        {{ $upstream_link = (print $containerNetwork.IP ":" $port) }}
+                    {{ end }}
+                {{ end }}
+            {{ end }}
+        {{ end }}
+    {{ end }}
+
+    location / {
+    {{ if (ne $upstream_link "empty") }}
+        proxy_pass {{ trim $protocol }}://{{ trim $upstream_link }};
+    {{ else }}
+        return 503;
+    {{ end }}
+    }
+{{ end }}
+
+{{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
+    {{ $container := (first $containers) }}
+    {{ $host := trim $host }}
+    {{ $internal_network := eq (or ($container.Env.NETWORK_ACCESS) "external") "internal" }}
+	{{ $debug := (eq (coalesce $container.Env.DEBUG $debug_all "false") "true") }}
 
     {{ if $debug }}
     # Exposed ports: {{ $container.Addresses }}
     {{ end }}
 
-    {{ $internal_network := eq (or ($container.Env.NETWORK_ACCESS) "external") "internal" }}
-
 	{{ range $http_port := (split (or ($container.Env.VIRTUAL_HTTP_PORT) "") ",") }}
 	    {{ $http_port := trim $http_port }}
-	    {{ $address := where $container.Addresses "Port" $http_port | first }}
 
-        {{ if $debug }}
-            {{ if not $address }}
-            # /!\ Virtual port not exposed
-            {{ end }}
-        {{ end }}
+        server {
+            server_name {{ $host }};
+            server_tokens off;
 
-        {{ $upstream_link := "empty" }}
-
-        {{ range $knownNetwork := $CurrentContainer.Networks }}
-            {{ range $containerNetwork := $container.Networks }}
-                {{ if (and (ne $containerNetwork.Name "ingress") (or (eq $knownNetwork.Name $containerNetwork.Name) (eq $knownNetwork.Name "host"))) }}
-                    {{ if $address }}
-                        {{/* If we got the containers from swarm and this container's port is published to host, use host IP:PORT */}}
-                        {{ if and $container.Node.ID $address.HostPort }}
-
-                            {{ $upstream_link = (print $container.Node.Address.IP ":" $address.HostPort) }}
-
-                        {{/* If there is no swarm node or the port is not published on host, use container's IP:PORT */}}
-                        {{ else if $containerNetwork }}
-
-                            {{ $upstream_link = (print $containerNetwork.IP ":" $address.Port) }}
-
-                        {{ end }}
-                    {{ else if $containerNetwork }}
-                        {{ if $containerNetwork.IP }}
-
-                            {{ $upstream_link = (print $containerNetwork.IP ":" $http_port) }}
-
-                        {{ end }}
-                    {{ end }}
-                {{ end }}
-            {{ end }}
-        {{ end }}
-
-
-        {{ if (ne $upstream_link "empty") }}
-            server {
-                server_name {{ $host }};
-                server_tokens off;
-
-                listen {{ $http_port }};
-                {{ if $enable_ipv6 }}
+            listen {{ $http_port }};
+            {{ if $enable_ipv6 }}
                 listen [::]:{{ $http_port }};
-                {{ end }}
+            {{ end }}
 
-                {{ if $internal_network }}
+            {{ if $internal_network }}
                 # Only allow traffic from internal clients
                 include /etc/nginx/network_internal.conf;
-                {{ end }}
+            {{ end }}
 
-                location / {
-                    proxy_pass http://{{ trim $upstream_link }};
-                }
-            }
-        {{ end }}
+            {{ template "location" (dict "Container" $container "Protocol" "http" "Port" $http_port "Networks" $CurrentContainer.Networks "Debug" $debug_all) }}
+        }
 	{{ end }}
 
 
 
     {{ $cert_name := trimPrefix "www." $host }}
     {{ $is_https := (and (exists (printf "/etc/letsencrypt/live/%s/fullchain.pem" $cert_name)) (exists (printf "/etc/letsencrypt/live/%s/privkey.pem" $cert_name))) }}
+
     {{ if $is_https }}
-        {{ range $https_port := (split (or ($container.Env.VIRTUAL_HTTPS_PORT) "") ",") }}
-            {{ $https_port := trim $https_port }}
-            {{ $address := where $container.Addresses "Port" $https_port | first }}
+    {{ range $https_port := (split (or ($container.Env.VIRTUAL_HTTPS_PORT) "") ",") }}
+        {{ $https_port := trim $https_port }}
 
-            {{ if $debug }}
-                {{ if not $address }}
-                # /!\ Virtual port not exposed
-                {{ end }}
+        server {
+            server_name {{ $host }};
+            server_tokens off;
+
+            listen {{ $https_port }} ssl http2;
+            {{ if $enable_ipv6 }}
+            listen [::]:{{ $https_port }} ssl http2;
             {{ end }}
 
-            {{ $upstream_link := "empty" }}
-
-            {{ range $knownNetwork := $CurrentContainer.Networks }}
-                {{ range $containerNetwork := $container.Networks }}
-                    {{ if (and (ne $containerNetwork.Name "ingress") (or (eq $knownNetwork.Name $containerNetwork.Name) (eq $knownNetwork.Name "host"))) }}
-                        {{ if $address }}
-                            {{/* If we got the containers from swarm and this container's port is published to host, use host IP:PORT */}}
-                            {{ if and $container.Node.ID $address.HostPort }}
-
-                                {{ $upstream_link = (print $container.Node.Address.IP ":" $address.HostPort) }}
-
-                            {{/* If there is no swarm node or the port is not published on host, use container's IP:PORT */}}
-                            {{ else if $containerNetwork }}
-
-                                {{ $upstream_link = (print $containerNetwork.IP ":" $address.Port ) }}
-
-                            {{ end }}
-                        {{ else if $containerNetwork }}
-                            {{ if $containerNetwork.IP }}
-
-                                {{ $upstream_link = (print $containerNetwork.IP ":" $https_port) }}
-
-                            {{ end }}
-                        {{ end }}
-                    {{ end }}
-                {{ end }}
+            {{ if $internal_network }}
+            # Only allow traffic from internal clients
+            include /etc/nginx/network_internal.conf;
             {{ end }}
 
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
+            ssl_prefer_server_ciphers off;
 
-            {{ if (ne $upstream_link "empty") }}
-                server {
-                    server_name {{ $host }};
-                    server_tokens off;
+            ssl_session_cache shared:SSL:50m;
+            ssl_session_tickets off;
+            ssl_session_timeout 1440m;
 
-                    listen {{ $https_port }} ssl http2;
-                    {{ if $enable_ipv6 }}
-                    listen [::]:{{ $https_port }} ssl http2;
-                    {{ end }}
+            ssl_certificate {{ (printf "/etc/letsencrypt/live/%s/fullchain.pem" $cert_name) }};
+            ssl_certificate_key {{ (printf "/etc/letsencrypt/live/%s/privkey.pem" $cert_name) }};
 
-                    {{ if $internal_network }}
-                    # Only allow traffic from internal clients
-                    include /etc/nginx/network_internal.conf;
-                    {{ end }}
-
-                    ssl_protocols TLSv1.2 TLSv1.3;
-                    ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
-                    ssl_prefer_server_ciphers off;
-
-                    ssl_session_cache shared:SSL:50m;
-                    ssl_session_tickets off;
-                    ssl_session_timeout 1440m;
-
-                    ssl_certificate {{ (printf "/etc/letsencrypt/live/%s/fullchain.pem" $cert_name) }};
-                    ssl_certificate_key {{ (printf "/etc/letsencrypt/live/%s/privkey.pem" $cert_name) }};
-
-                    location / {
-                        proxy_pass https://{{ trim $upstream_link }};
-                    }
-                }
-            {{ end }}
-        {{ end }}
+            {{ template "location" (dict "Container" $container "Protocol" "https" "Port" $https_port "Networks" $CurrentContainer.Networks "Debug" $debug_all) }}
+        }
+    {{ end }}
     {{ end }}
 {{ end }}
