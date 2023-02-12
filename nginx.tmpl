@@ -58,11 +58,11 @@ proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
 proxy_set_header X-Forwarded-Ssl $proxy_x_forwarded_ssl;
 proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
 proxy_set_header X-Original-URI $request_uri;
-proxy_set_header SERVER_PORT $server_port;
-proxy_set_header SERVER_ADDR $server_addr;
-proxy_set_header REMOTE_PORT $remote_port;
-proxy_set_header REMOTE_ADDR $remote_addr;
-proxy_set_header NGINX_SCHEME $scheme;
+proxy_set_header SERVER-PORT $server_port;
+proxy_set_header SERVER-ADDR $server_addr;
+proxy_set_header REMOTE-PORT $remote_port;
+proxy_set_header REMOTE-ADDR $remote_addr;
+proxy_set_header NGINX-SCHEME $scheme;
 proxy_set_header Proxy "";
 
 # Unrecognized host
