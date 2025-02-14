@@ -168,9 +168,10 @@ server {
         server_name {{ $host }};
         server_tokens off;
 
-        listen {{ $https_port }} ssl http2;
+        listen {{ $https_port }} ssl;
         {{ if $enable_ipv6 }}
-        listen [::]:{{ $https_port }} ssl http2;
+        listen [::]:{{ $https_port }} ssl;
+	http2 on;
         {{ end }}
 
         {{ if $internal_network }}
